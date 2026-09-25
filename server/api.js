@@ -73,15 +73,19 @@ router.get('/curve/query', withData((data, req) => {
   if (!reservoirId) throw new AppError(400, 'INVALID_PAYLOAD', '请先选一个水库');
   const curve = water.curveOf(data, reservoirId);
   if (!curve) throw new AppError(404, 'CURVE_NOT_FOUND', '这个水库还没有水位-库容曲线');
-  const out = { reservoirId, pointCount: (curve.points || []).length, verifiedOn: curve.verifiedOn };
+  const out = {
+    reservoirId,
+    pointCount: (curve.points || []).length,
+    verifiedOn: curve.verifiedOn,
+    method: '分段线性插值（正查与反查共用同一条分段曲线，互为反解）',
+  };
   if (level !== undefined) {
     out.level = Number(level);
     out.capacity = water.capacityAt(curve, level, data.settings);
   }
   if (capacity !== undefined) {
     out.capacity = Number(capacity);
-    out.level = water.levelAt(curve, capacity);
-    out.levelByCurve = water.levelAt(curve, capacity);
+    out.level = water.levelAt(curve, capacity, data.settings);
   }
   return out;
 }));

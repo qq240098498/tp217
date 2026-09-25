@@ -339,6 +339,7 @@
       html.push('<div class="side-block"><h3>口径</h3><ul class="side-list">');
       html.push('<li>限水位 = 汛期取汛限、非汛期取正常蓄水位（接口给出）</li>');
       html.push('<li>曲线点表可编辑后保存</li>');
+      html.push('<li>曲线查询：正查反查同一条分段曲线，分段线性插值</li>');
       html.push('</ul></div>');
     } else if (view === 'water') {
       html.push('<div class="side-block">');
@@ -557,7 +558,7 @@
       + '</div>'
       + '<div class="form-error" data-role="curve-error" hidden></div>'
 
-      + '<h4>曲线查询 <span class="card-sub">接口 <code>GET /api/curve/query</code>，两边结果都显示出来</span></h4>'
+      + '<h4>曲线查询 <span class="card-sub">接口 <code>GET /api/curve/query</code>，两个方向都摆出来；正查反查同一条分段曲线，分段线性插值</span></h4>'
       + '<div class="inline-form">'
       + '<label class="field"><span>按水位查库容：水位（m）</span><input type="number" step="0.01" id="curveLevelInput" placeholder="97.5" /></label>'
       + '<button type="button" class="btn btn-sm" data-action="query-curve-level" data-reservoir-id="' + esc(r.id) + '">查库容</button>'
@@ -567,7 +568,7 @@
       + '<div class="detail-grid">'
       + itemHtml(['按水位查到的库容', query.byLevel ? query.byLevel.capacity : '（还没查）'])
       + itemHtml(['按库容反查到的水位', query.byCapacity ? query.byCapacity.level : '（还没查）'])
-      + itemHtml(['反查时接口附带的曲线水位', query.byCapacity ? query.byCapacity.levelByCurve : '（还没查）'])
+      + itemHtml(['插值方式', (query.byLevel && query.byLevel.method) || (query.byCapacity && query.byCapacity.method) || '分段线性插值（正查反查同一条分段曲线）'])
       + itemHtml(['曲线点数', query.pointCount || d.pointCount])
       + '</div>'
 
