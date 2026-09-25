@@ -33,18 +33,51 @@ function capacityAt(curve, level, settings) {
   return result(Number(points[points.length - 1].capacity));
 }
 
-// 由库容反查水位：同样按曲线分段反解
-function levelAt(curve, capacity) {
+// 由库容反查水位：与 capacityAt 用同一条分段曲线，逐段线性反解，
+// 不能拿首末两点整体拉直线；同一库容来回倒要能回到原水位（误差不超过水位精度）
+function levelAt(curve, capacity, settings) {
   const points = sortedPoints(curve);
-  const digits = 2;
+  const digits = decimalsOf(settings);
   const target = Number(capacity);
   if (!points.length) return 0;
   if (target <= Number(points[0].capacity)) return store.round(Number(points[0].level), digits);
   if (target >= Number(points[points.length - 1].capacity)) return store.round(Number(points[points.length - 1].level), digits);
-  const first = points[0];
-  const last = points[points.length - 1];
-  const ratio = (target - Number(first.capacity)) / (Number(last.capacity) - Number(first.capacity));
-  return store.round(Number(first.level) + ratio * (Number(last.level) - Number(first.level)), digits);
+  for (let i = 0; i < points.length - 1; i += 1) {
+    const low = points[i];
+    const high = points[i + 1];
+    const capLow = Number(low.capacity);
+    const capHigh = Number(high.capacity);
+    if (target >= capLow && target <= capHigh) {
+      const ratio = (target - capLow) / (capHigh - capLow);
+      return store.round(Number(low.level) + ratio * (Number(high.level) - Number(low.level)), digits);
+    }
+  }
+  return store.round(Number(points[points.length - 1].level), digits);
+}
+
+// 找到输入值落在曲线上的那个分段（区间内端点归到靠后的段），供接口说明用
+function segmentOf(curve, value, by) {
+  const points = sortedPoints(curve);
+  if (points.length < 2) return null;
+  const key = by === 'capacity' ? 'capacity' : 'level';
+  const x0 = Number(points[0][key]);
+  const xn = Number(points[points.length - 1][key]);
+  const target = Number(value);
+  if (target <= x0 || target >= xn) return null;
+  for (let i = 0; i < points.length - 1; i += 1) {
+    const low = points[i];
+    const high = points[i + 1];
+    if (target >= Number(low[key]) && target <= Number(high[key])) {
+      return {
+        index: i,
+        lowLevel: Number(low.level),
+        lowCapacity: Number(low.capacity),
+        highLevel: Number(high.level),
+        highCapacity: Number(high.capacity),
+      };
+    }
+  }
+  return null;
 }
 
 // 汛期判断与限水位
@@ -133,6 +166,7 @@ module.exports = {
   sortedPoints,
   capacityAt,
   levelAt,
+  segmentOf,
   inFloodSeason,
   limitLevelOf,
   levelCheck,

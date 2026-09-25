@@ -539,6 +539,20 @@
     }).join('');
 
     var query = state.curveQuery.reservoirId === r.id ? state.curveQuery : { reservoirId: r.id, byLevel: null, byCapacity: null };
+    var qlResult = query.byLevel;
+    var qcResult = query.byCapacity;
+
+    function curveSegText(q) {
+      if (!q) return '（还没查）';
+      var s = q.segment;
+      if (!s) return '曲线范围外：取最近端点值，不做外推';
+      return '第 ' + (s.index + 1) + ' 段（' + s.lowLevel + ' m / ' + s.lowCapacity
+        + ' → ' + s.highLevel + ' m / ' + s.highCapacity + ' 万m³），段内线性插值';
+    }
+    function okText(q) {
+      if (!q || !q.roundTrip) return '（还没查）';
+      return q.roundTrip.withinPrecision ? '是，来回一致' : '否，来回对不上';
+    }
 
     return '<tr class="detail-row" data-detail-for="' + esc(r.id) + '"><td colspan="' + colspan + '"><div class="detail" data-reservoir-id="' + esc(r.id) + '">'
       + '<h4>水位口径（全部取接口字段）</h4>'
@@ -557,19 +571,36 @@
       + '</div>'
       + '<div class="form-error" data-role="curve-error" hidden></div>'
 
-      + '<h4>曲线查询 <span class="card-sub">接口 <code>GET /api/curve/query</code>，两边结果都显示出来</span></h4>'
+      + '<h4>曲线查询 <span class="card-sub">接口 <code>GET /api/curve/query</code>，正查与反查都按同一条曲线的相邻测点分段线性插值、互为反解，两个方向的结果都摆出来</span></h4>'
       + '<div class="inline-form">'
       + '<label class="field"><span>按水位查库容：水位（m）</span><input type="number" step="0.01" id="curveLevelInput" placeholder="97.5" /></label>'
       + '<button type="button" class="btn btn-sm" data-action="query-curve-level" data-reservoir-id="' + esc(r.id) + '">查库容</button>'
       + '<label class="field"><span>按库容反查水位：库容（万m³）</span><input type="number" step="0.01" id="curveCapacityInput" placeholder="3000" /></label>'
       + '<button type="button" class="btn btn-sm" data-action="query-curve-capacity" data-reservoir-id="' + esc(r.id) + '">反查水位</button>'
       + '</div>'
-      + '<div class="detail-grid">'
-      + itemHtml(['按水位查到的库容', query.byLevel ? query.byLevel.capacity : '（还没查）'])
-      + itemHtml(['按库容反查到的水位', query.byCapacity ? query.byCapacity.level : '（还没查）'])
-      + itemHtml(['反查时接口附带的曲线水位', query.byCapacity ? query.byCapacity.levelByCurve : '（还没查）'])
-      + itemHtml(['曲线点数', query.pointCount || d.pointCount])
-      + '</div>'
+      + '<table class="mini-table"><thead><tr>'
+      + '<th>查询方向</th><th>输入</th><th>结果</th><th>用的分段（分段线性插值）</th><th>回头换算</th><th>来回误差</th><th>是否在水位精度内回到原值</th>'
+      + '</tr></thead><tbody>'
+      + '<tr>'
+      + '<td>按水位查库容（正查）</td>'
+      + '<td class="num">' + (qlResult ? esc(numText(qlResult.level)) + ' m' : '（还没查）') + '</td>'
+      + '<td class="num">' + (qlResult ? esc(numText(qlResult.capacity)) + ' 万m³' : '（还没查）') + '</td>'
+      + '<td>' + esc(curveSegText(qlResult)) + '</td>'
+      + '<td class="num">' + (qlResult && qlResult.roundTrip ? '库容 ' + esc(numText(qlResult.capacity)) + ' 万m³ 反查回水位 ' + esc(numText(qlResult.roundTrip.levelBack)) + ' m' : '（还没查）') + '</td>'
+      + '<td class="num">' + (qlResult && qlResult.roundTrip ? esc(numText(qlResult.roundTrip.levelGap)) + ' m' : '（还没查）') + '</td>'
+      + '<td>' + esc(okText(qlResult)) + '</td>'
+      + '</tr>'
+      + '<tr>'
+      + '<td>按库容反查水位（反查）</td>'
+      + '<td class="num">' + (qcResult ? esc(numText(qcResult.capacity)) + ' 万m³' : '（还没查）') + '</td>'
+      + '<td class="num">' + (qcResult ? esc(numText(qcResult.level)) + ' m' : '（还没查）') + '</td>'
+      + '<td>' + esc(curveSegText(qcResult)) + '</td>'
+      + '<td class="num">' + (qcResult && qcResult.roundTrip ? '水位 ' + esc(numText(qcResult.level)) + ' m 正查回库容 ' + esc(numText(qcResult.roundTrip.capacityBack)) + ' 万m³' : '（还没查）') + '</td>'
+      + '<td class="num">' + (qcResult && qcResult.roundTrip ? esc(numText(qcResult.roundTrip.capacityGap)) + ' 万m³（容差 ' + esc(numText(qcResult.roundTrip.capacityTolerance)) + '）' : '（还没查）') + '</td>'
+      + '<td>' + esc(okText(qcResult)) + '</td>'
+      + '</tr>'
+      + '</tbody></table>'
+      + '<p class="card-sub">算法：' + esc((qlResult && qlResult.method) || (qcResult && qcResult.method) || '分段线性插值：在曲线相邻两测点之间逐段线性求解') + '；水位精度 ' + esc(numText((qlResult || qcResult || {}).levelPrecision || d.levelPrecision || 0.01)) + ' m。</p>'
 
       + '<h4>该库记录条数</h4>'
       + '<div class="detail-grid">'
